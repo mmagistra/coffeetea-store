@@ -1,33 +1,19 @@
 from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 
 User = get_user_model()
 
 
-class Product(models.Model):
-    PRODUCT_TYPES = (
-        ('tea', 'Чай'),
-        ('coffee', 'Кофе'),
-        ('accessory', 'Аксессуар'),
-    )
-
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    manufacturer = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
-    region = models.CharField(max_length=100, blank=True, null=True)
-    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPES)
-    available = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ('name',)
+class Country(models.Model):
+    name = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
         return self.name
 
 
-class CoffeeComposition(models.Model):
+class Manufacturer(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
@@ -48,6 +34,36 @@ class Additive(models.Model):
         return self.name
 
 
+class Product(models.Model):
+    PRODUCT_TYPES = (
+        ('tea', 'Чай'),
+        ('coffee', 'Кофе'),
+        ('accessory', 'Аксессуар'),
+    )
+
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    manufacturer = models.ForeignKey(Manufacturer, on_delete=models.PROTECT, related_name='products')
+    country = models.ForeignKey(Country, on_delete=models.PROTECT, related_name='products')
+    region = models.CharField(max_length=100, blank=True, null=True)
+    product_type = models.CharField(max_length=20, choices=PRODUCT_TYPES)
+    available = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
+
+
+# class CoffeeComposition(models.Model):
+#     name = models.CharField(max_length=100, unique=True)
+#     percent = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
+#
+#     def __str__(self):
+#         return f"{self.percent}% {self.name}"
+
+
 class CoffeeAttribute(models.Model):
     ROASTS = [
         ('light', 'Слабая'),
@@ -64,9 +80,14 @@ class CoffeeAttribute(models.Model):
     coffee_type = models.CharField(max_length=20, choices=COFFEE_TYPES)
     roast = models.CharField(max_length=20, choices=ROASTS)
     q_grading = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
-    compositions = models.ManyToManyField(CoffeeComposition)
-    aromas = models.ManyToManyField(Aroma)
-    additives = models.ManyToManyField(Additive)
+    aromas = models.ManyToManyField(Aroma, related_name='coffee_attrs')
+    additives = models.ManyToManyField(Additive, related_name='coffee_attrs')
+
+    arabica_percent = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
+    robusta_percent = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
+    liberica_percent = models.PositiveIntegerField(validators=[MinValueValidator(0), MaxValueValidator(100)])
+
+
 
 
 class TeaCategory(models.Model):
@@ -87,9 +108,9 @@ class TeaAttribute(models.Model):
 
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='tea_attr')
     tea_type = models.CharField(max_length=20, choices=TEA_TYPES)
-    category = models.ForeignKey(TeaCategory, on_delete=models.CASCADE)
-    aromas = models.ManyToManyField(Aroma)
-    additives = models.ManyToManyField(Additive)
+    category = models.ForeignKey(TeaCategory, on_delete=models.CASCADE, related_name='tea_attrs')
+    aromas = models.ManyToManyField(Aroma, related_name='tea_attrs')
+    additives = models.ManyToManyField(Additive, related_name='tea_attrs')
 
 
 class AccessoryType(models.Model):
@@ -101,7 +122,7 @@ class AccessoryType(models.Model):
 
 class AccessoryAttribute(models.Model):
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='accessory_attr')
-    accessory_type = models.ForeignKey(AccessoryType, on_delete=models.CASCADE)
+    accessory_type = models.ForeignKey(AccessoryType, on_delete=models.CASCADE, related_name='accessory_attrs')
     volume = models.DecimalField('volume (l)', max_digits=5, decimal_places=2, null=True, blank=True)
 
 
@@ -116,3 +137,8 @@ class Variation(models.Model):
 
     class Meta:
         unique_together = ('product', 'text_description_of_count')
+        ordering = ['product', 'text_description_of_count']
+
+    def __str__(self):
+        return self.text_description_of_count
+        # return f'{self.product.name} | {self.text_description_of_count}'

@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 3-rd party
+    'admin_auto_filters',
+    'rangefilter',
     # My apps
     'apps.accounts.apps.AccountsConfig',
     'apps.common.apps.CommonConfig',

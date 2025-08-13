@@ -3,13 +3,25 @@ from django.utils.html import format_html
 from django.urls import reverse
 
 from .models import Order, OrderItem
+from .forms import OrderItemForm
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
+    form = OrderItemForm
     extra = 0
-    readonly_fields = ['price', 'total_price']
-    fields = ['variation', 'price', 'quantity', 'total_price']
+    readonly_fields = ['total_price', 'price']
+    fields = ['product', 'variation', 'price', 'quantity', 'total_price']
+
+    def get_readonly_fields(self, request, obj=None):
+        if request.user.is_superuser:
+            return ['total_price']
+        return self.readonly_fields
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related('variation__product')
+        return qs
 
     def total_price(self, obj):
         if obj.pk:
@@ -17,6 +29,9 @@ class OrderItemInline(admin.TabularInline):
         return 0
 
     total_price.short_description = 'Сумма'
+
+    class Media:
+        js = ('admin/js/order_item_inline.js',)
 
 
 @admin.register(Order)
@@ -31,6 +46,8 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = ['created', 'updated', 'total_items', 'total_amount']
     date_hierarchy = 'created'
     list_per_page = 25
+
+
 
     fieldsets = (
         ('Информация о заказе', {
@@ -60,6 +77,14 @@ class OrderAdmin(admin.ModelAdmin):
     def total_amount(self, obj):
         return sum(item.price * item.quantity for item in obj.items.all())
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.prefetch_related(
+            'items__variation__product',
+            'items__variation',
+        )
+        return qs
+
     total_amount.short_description = 'Сумма заказа ₽'
 
 
@@ -79,5 +104,10 @@ class OrderItemAdmin(admin.ModelAdmin):
 
     def total_price(self, obj):
         return obj.price * obj.quantity
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related('order', 'variation__product')
+        return qs
 
     total_price.short_description = 'Сумма ₽'

@@ -29,3 +29,6 @@ class OrderItem(models.Model):
     variation = models.ForeignKey('products.Variation', on_delete=models.PROTECT)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f'{self.variation.product.name} | {self.variation.text_description_of_count}'
